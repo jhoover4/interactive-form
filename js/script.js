@@ -1,65 +1,140 @@
 "use strict";
 
-const focusFirstField = () => {
-  $("form input")
-    .eq(0)
-    .focus();
-};
+const runValidations = (elToAppendTo, validationFunctions) => {
+  let errors = [];
 
-const showOtherJobRoleField = () => {
-  const otherTitleTextField = $("#other-title");
+  for (const errorFn of validationFunctions) {
+    const errorStr = errorFn();
 
-  // Initialize to hidden
-  otherTitleTextField.hide();
+    if (errorStr !== "") {
+      errors.push(errorStr);
+    }
+  }
 
-  $('select[name="user_title"]').change(e => {
-    if ($(e.target).val() === "other") {
-      otherTitleTextField.show();
+  if (errors) {
+    const existingErrHtml = elToAppendTo.children(".error");
+
+    if (existingErrHtml.length) {
+      existingErrHtml.text(errors.join(" "));
     } else {
-      otherTitleTextField.hide();
+      const errHtml = $(`<p class='error'>Errors: ${errors.join(" ")}</p>`);
+      elToAppendTo.prepend(errHtml);
     }
-  });
+  }
+
+  return errors.length !== 0;
 };
 
-const settShirtInfo = () => {
-  const tShirtColorSelect = $("#color");
+const validateInputWithRegex = (selector, regex, errorMessage) => {
+  return () => {
+    const field = $(selector);
 
-  const jsPunOptions = ["cornflowerblue", "darkslategrey", "gold"];
-  const iHeartJsOptions = ["tomato", "steelblue", "dimgrey"];
-
-  const $designSelect = $("#design");
-
-  $designSelect.change(() => {
-    let filterArr = [];
-    if ($designSelect.val() === "js puns") {
-      filterArr = jsPunOptions;
-    } else if ($designSelect.val() === "heart js") {
-      filterArr = iHeartJsOptions;
+    if (!field.text().match(regex)) {
+      field.addClass("field-error");
+      return errorMessage;
     }
 
-    for (let colorChoice of tShirtColorSelect.children()) {
-      colorChoice = $(colorChoice);
-      colorChoice.show();
+    return "";
+  };
+};
 
-      if (filterArr.length !== 0 && !filterArr.includes(colorChoice.val())) {
-        colorChoice.hide();
+const basicInfoPanel = (function($) {
+  const setPanel = () => {
+    focusFirstField();
+    showOtherJobRoleField();
+  };
+
+  const validations = () => {
+    const panel = $("#basic-info-panel");
+    const checkNameFieldNotBlank = validateInputWithRegex(
+      "#name",
+      /^\S+$/,
+      "Name field must be filled."
+    );
+    const checkValidEmail = validateInputWithRegex(
+      "#mail",
+      /^\S+@\S+\.\w+$/,
+      "Email is not valid."
+    );
+
+    return runValidations(panel, [checkNameFieldNotBlank, checkValidEmail]);
+  };
+
+  const focusFirstField = () => {
+    $("form input")
+      .eq(0)
+      .focus();
+  };
+
+  const showOtherJobRoleField = () => {
+    const otherTitleTextField = $("#other-title");
+
+    // Initialize to hidden
+    otherTitleTextField.hide();
+
+    $('select[name="user_title"]').change(e => {
+      if ($(e.target).val() === "other") {
+        otherTitleTextField.show();
+      } else {
+        otherTitleTextField.hide();
       }
-    }
-  });
-};
+    });
+  };
+
+  return {
+    setPanel,
+    validations
+  };
+})(jQuery);
+
+const tShirtPanel = (function($) {
+  const setPanel = () => {
+    settShirtInfo();
+  };
+
+  const settShirtInfo = () => {
+    const tShirtColorSelect = $("#color");
+
+    const jsPunOptions = ["cornflowerblue", "darkslategrey", "gold"];
+    const iHeartJsOptions = ["tomato", "steelblue", "dimgrey"];
+
+    const $designSelect = $("#design");
+
+    $designSelect.change(() => {
+      let filterArr = [];
+      if ($designSelect.val() === "js puns") {
+        filterArr = jsPunOptions;
+      } else if ($designSelect.val() === "heart js") {
+        filterArr = iHeartJsOptions;
+      }
+
+      for (let colorChoice of tShirtColorSelect.children()) {
+        colorChoice = $(colorChoice);
+        colorChoice.show();
+
+        if (filterArr.length !== 0 && !filterArr.includes(colorChoice.val())) {
+          colorChoice.hide();
+        }
+      }
+    });
+  };
+
+  return {
+    setPanel
+  };
+})(jQuery);
 
 const activityRegisterPanel = (function($) {
   const activityPanel = $(".activities");
+  const activities = activityPanel.find("label");
   const totalEl = $("<p></p>");
 
-  const setActivityPanel = () => {
+  const setPanel = () => {
     appendWorkshopTotalEl(activityPanel);
     setActivityCheckEvent();
   };
 
   const setActivityCheckEvent = () => {
-    const activities = activityPanel.find("label");
-
     activities.children(":checkbox").click(e => {
       setTotalVal(calculateCost(activities));
       hideOverlappingActivities(activities);
@@ -149,15 +224,97 @@ const activityRegisterPanel = (function($) {
     return totalEl;
   };
 
+  const validations = () => {
+    return runValidations(activityPanel, [checkIfActivitySelected]);
+  };
+
+  const checkIfActivitySelected = () => {
+    if (activities.children(":checkbox:checked")) {
+      return "Must have one activity checked.";
+    }
+
+    return "";
+  };
+
   return {
-    setActivityPanel
+    setPanel,
+    validations
   };
 })(jQuery);
 
-const run = () => {
-  focusFirstField();
-  showOtherJobRoleField();
-  settShirtInfo();
-  activityRegisterPanel.setActivityPanel();
-};
-run();
+const paymentPanel = (function($) {
+  const paymentSelect = $("#payment");
+
+  const setPanel = () => {
+    paymentSelect.val("credit card");
+    hideShowInfoDivs("credit card");
+
+    paymentSelect.change(e => {
+      const selectedValue = $(e.target).val();
+      hideShowInfoDivs(selectedValue);
+    });
+  };
+
+  const hideShowInfoDivs = selectedVal => {
+    const paymentSectionMap = new Map();
+    paymentSectionMap.set("credit card", $("#credit-card"));
+    paymentSectionMap.set("paypal", $("#paypal-info"));
+    paymentSectionMap.set("bitcoin", $("#bitcoin-info"));
+
+    for (let [key, sectionEl] of paymentSectionMap) {
+      if (key === selectedVal) {
+        sectionEl.show();
+      } else {
+        sectionEl.hide();
+      }
+    }
+  };
+
+  const validations = () => {
+    const panel = $("#payment-panel");
+    const checkCreditCardNumber = validateInputWithRegex(
+      "#cc-num",
+      /^\d{13,16}$/,
+      "Not a valid credit card number."
+    );
+    const checkCreditCardZip = validateInputWithRegex(
+      "#zip",
+      /^\d{5}$/,
+      "Not a zip code."
+    );
+    const checkCreditCardCvv = validateInputWithRegex(
+      "#cvv",
+      /^\d{3}$/,
+      "Not a valid cvv number."
+    );
+
+    if (paymentSelect.val() === "credit card") {
+      return runValidations(panel, [
+        checkCreditCardNumber,
+        checkCreditCardZip,
+        checkCreditCardCvv
+      ]);
+    }
+  };
+
+  return {
+    setPanel,
+    validations
+  };
+})(jQuery);
+
+(function() {
+  basicInfoPanel.setPanel();
+  tShirtPanel.setPanel();
+  activityRegisterPanel.setPanel();
+  paymentPanel.setPanel();
+})();
+
+$("form").submit(e => {
+  e.preventDefault();
+
+  // If all forms pass validation
+  if (basicInfoPanel.validations() && activityRegisterPanel.validations() && paymentPanel.validations()) {
+    e.submit();
+  }
+});

@@ -17,7 +17,7 @@
 
     <form action="index.html" method="post">
               
-      <fieldset>         
+      <fieldset id="basic-info-panel">
         <legend>Basic Info</legend>
         
         <label for="name">Name:</label>
@@ -38,7 +38,7 @@
         <input type="text" name="other-title" id="other-title" placeholder="Your Job Role">
       </fieldset>
       
-      <fieldset class="shirt">
+      <fieldset id="shirt-panel" class="shirt">
         <legend>T-Shirt Info</legend>
         
         <div>
@@ -84,7 +84,7 @@
         <label><input type="checkbox" name="npm"> npm Workshop — Wednesday 1pm-4pm, $100</label>
                   	
       </fieldset>
-      <fieldset>
+      <fieldset id="payment-panel">
         <legend>Payment Info</legend>
 
         <label for="payment">I'm going to pay with:</label>
@@ -137,17 +137,17 @@
           </select> 	                  	         
         </div>
 
-        <div>
+        <div id="paypal-info">
         	<p>If you selected the PayPal option we'll take you to Paypal's site to set up your billing information, when you click “Register” below.</p>
         </div> 
 
-        <div>
+        <div id="bitcoin-info">
         	<p>If you selected the Bitcoin option we'll take you to the Coinbase site to set up your billing information. Due to the nature of exchanging Bitcoin, all Bitcoin transactions will be final.</p>
         </div>                  
 
       </fieldset>        
         
-      <button type="submit">Register</button>
+      <button id="register" type="submit">Register</button>
       
     </form>
 

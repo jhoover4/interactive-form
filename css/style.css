@@ -198,3 +198,11 @@ option {
 		clear: both;
 	}
 }
+
+.error {
+	color: tomato;
+}
+
+.field-error {
+	border-color: tomato;
+}
