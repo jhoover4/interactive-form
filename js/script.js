@@ -11,27 +11,31 @@ const runValidations = (elToAppendTo, validationFunctions) => {
     }
   }
 
-  if (errors) {
-    const existingErrHtml = elToAppendTo.children(".error");
+  const existingErrHtml = elToAppendTo.children(".error");
 
+  if (errors.length > 0) {
     if (existingErrHtml.length) {
-      existingErrHtml.text(errors.join(" "));
+      existingErrHtml.text("Errors: " + errors.join(" "));
     } else {
       const errHtml = $(`<p class='error'>Errors: ${errors.join(" ")}</p>`);
       elToAppendTo.prepend(errHtml);
     }
+  } else {
+    existingErrHtml.remove();
   }
 
-  return errors.length !== 0;
+  return errors.length === 0;
 };
 
 const validateInputWithRegex = (selector, regex, errorMessage) => {
   return () => {
     const field = $(selector);
 
-    if (!field.text().match(regex)) {
+    if (!field.val().match(regex)) {
       field.addClass("field-error");
       return errorMessage;
+    } else {
+      field.removeClass("field-error");
     }
 
     return "";
@@ -48,7 +52,7 @@ const basicInfoPanel = (function($) {
     const panel = $("#basic-info-panel");
     const checkNameFieldNotBlank = validateInputWithRegex(
       "#name",
-      /^\S+$/,
+      /^[a-zA-Z\s]+$/,
       "Name field must be filled."
     );
     const checkValidEmail = validateInputWithRegex(
@@ -88,8 +92,12 @@ const basicInfoPanel = (function($) {
 })(jQuery);
 
 const tShirtPanel = (function($) {
+  const tShirtSelectParent = $("#colors-js-puns");
+  const $designSelect = $("#design");
+
   const setPanel = () => {
     settShirtInfo();
+    hideColorUntilSelected();
   };
 
   const settShirtInfo = () => {
@@ -97,8 +105,6 @@ const tShirtPanel = (function($) {
 
     const jsPunOptions = ["cornflowerblue", "darkslategrey", "gold"];
     const iHeartJsOptions = ["tomato", "steelblue", "dimgrey"];
-
-    const $designSelect = $("#design");
 
     $designSelect.change(() => {
       let filterArr = [];
@@ -108,15 +114,26 @@ const tShirtPanel = (function($) {
         filterArr = iHeartJsOptions;
       }
 
-      for (let colorChoice of tShirtColorSelect.children()) {
-        colorChoice = $(colorChoice);
-        colorChoice.show();
+      if (filterArr.length) {
+        tShirtSelectParent.show();
+        tShirtColorSelect.val(filterArr[0]);
 
-        if (filterArr.length !== 0 && !filterArr.includes(colorChoice.val())) {
-          colorChoice.hide();
+        for (let colorChoice of tShirtColorSelect.children()) {
+          colorChoice = $(colorChoice);
+          colorChoice.show();
+
+          if (!filterArr.includes(colorChoice.val())) {
+            colorChoice.hide();
+          }
         }
+      } else {
+        tShirtSelectParent.hide();
       }
     });
+  };
+
+  const hideColorUntilSelected = () => {
+    tShirtSelectParent.hide();
   };
 
   return {
@@ -229,7 +246,7 @@ const activityRegisterPanel = (function($) {
   };
 
   const checkIfActivitySelected = () => {
-    if (activities.children(":checkbox:checked")) {
+    if (activities.children(":checkbox:checked").length === 0) {
       return "Must have one activity checked.";
     }
 
@@ -255,32 +272,13 @@ const paymentPanel = (function($) {
     });
   };
 
-  const hideShowInfoDivs = selectedVal => {
-    const paymentSectionMap = new Map();
-    paymentSectionMap.set("credit card", $("#credit-card"));
-    paymentSectionMap.set("paypal", $("#paypal-info"));
-    paymentSectionMap.set("bitcoin", $("#bitcoin-info"));
-
-    for (let [key, sectionEl] of paymentSectionMap) {
-      if (key === selectedVal) {
-        sectionEl.show();
-      } else {
-        sectionEl.hide();
-      }
-    }
-  };
-
   const validations = () => {
     const panel = $("#payment-panel");
-    const checkCreditCardNumber = validateInputWithRegex(
-      "#cc-num",
-      /^\d{13,16}$/,
-      "Not a valid credit card number."
-    );
+
     const checkCreditCardZip = validateInputWithRegex(
       "#zip",
       /^\d{5}$/,
-      "Not a zip code."
+      "Not a valid zip code."
     );
     const checkCreditCardCvv = validateInputWithRegex(
       "#cvv",
@@ -297,6 +295,42 @@ const paymentPanel = (function($) {
     }
   };
 
+  const hideShowInfoDivs = selectedVal => {
+    const paymentSectionMap = new Map();
+    paymentSectionMap.set("credit card", $("#credit-card"));
+    paymentSectionMap.set("paypal", $("#paypal-info"));
+    paymentSectionMap.set("bitcoin", $("#bitcoin-info"));
+
+    for (let [key, sectionEl] of paymentSectionMap) {
+      if (key === selectedVal) {
+        sectionEl.show();
+      } else {
+        sectionEl.hide();
+      }
+    }
+  };
+
+  const checkCreditCardNumber = () => {
+    const creditCardNumberField = $("#cc-num");
+    const regex = /^\d{13,16}$/;
+    let errorMsg = "";
+
+    if (!creditCardNumberField.val().match(regex)) {
+      creditCardNumberField.addClass("field-error");
+
+      if (creditCardNumberField.val() === "") {
+        errorMsg = "Credit card field is empty.";
+      } else {
+        errorMsg =
+          "Please enter a credit card number that is between 13 and 16 digits long.";
+      }
+    } else {
+      creditCardNumberField.removeClass("field-error");
+    }
+
+    return errorMsg;
+  };
+
   return {
     setPanel,
     validations
@@ -311,10 +345,11 @@ const paymentPanel = (function($) {
 })();
 
 $("form").submit(e => {
-  e.preventDefault();
+  const basicInfoPassed = basicInfoPanel.validations();
+  const activityRegisterPassed = activityRegisterPanel.validations();
+  const paymentPanelPassed = paymentPanel.validations();
 
-  // If all forms pass validation
-  if (basicInfoPanel.validations() && activityRegisterPanel.validations() && paymentPanel.validations()) {
-    e.submit();
+  if (!basicInfoPassed || !activityRegisterPassed || !paymentPanelPassed) {
+    e.preventDefault();
   }
 });
