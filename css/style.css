@@ -8,6 +8,11 @@
   box-sizing: border-box;
 }
 
+:root {
+	--error-color: crimson;
+	--warning-color: lightgoldenrodyellow;
+}
+
 body,
 input,
 button {
@@ -200,9 +205,17 @@ option {
 }
 
 .error {
-	color: tomato;
+	color: var(--error-color);
 }
 
 .field-error {
-	border-color: tomato;
+	border-color: var(--error-color);
+}
+
+.warning {
+	color: var(--warning-color);
+}
+
+.field-warning {
+	border-color: var(--warning-color);
 }

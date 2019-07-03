@@ -1,6 +1,8 @@
 "use strict";
 
 const helpers = (function($) {
+  let validationType = "error";
+
   /**
    * Helper function that runs validation functions for section.
    *
@@ -19,13 +21,18 @@ const helpers = (function($) {
       }
     }
 
-    const existingErrHtml = elToAppendTo.children(".error");
+    const selector = "p." + validationType;
+    const existingErrHtml = elToAppendTo.children(selector);
 
     if (errors.length > 0) {
+      const capitalizedValidationType =
+        validationType.charAt(0).toUpperCase() + validationType.slice(1);
+      const errorText = `${capitalizedValidationType}s: ${errors.join(" ")}`;
+
       if (existingErrHtml.length) {
-        existingErrHtml.text("Errors: " + errors.join(" "));
+        existingErrHtml.text(errorText);
       } else {
-        const errHtml = $(`<p class='error'>Errors: ${errors.join(" ")}</p>`);
+        const errHtml = $(`<p class='${validationType}'>${errorText}</p>`);
         elToAppendTo.prepend(errHtml);
       }
     } else {
@@ -48,14 +55,30 @@ const helpers = (function($) {
       const field = $(selector);
 
       if (!field.val().match(regex)) {
-        field.addClass("field-error");
+        field.addClass(`field-${validationType}`);
         return errorMessage;
       }
 
       field.removeClass("field-error");
+      field.removeClass("field-warning");
 
       return "";
     };
+  };
+
+  /**
+   * Updates the the helpers validation types. Currently only accepts warning or error.
+   *
+   * @param {String} type
+   */
+  const setValidationType = type => {
+    const formattedType = type.toLowerCase();
+
+    if (formattedType !== "error" && formattedType !== "warning") {
+      validationType = "error";
+    } else {
+      validationType = formattedType;
+    }
   };
 
   const debounce = (func, wait, immediate) => {
@@ -78,18 +101,21 @@ const helpers = (function($) {
   return {
     runValidations,
     validateInputWithRegex,
+    setValidationType,
     debounce
   };
 })(jQuery);
 
 const basicInfoPanel = (function($) {
+  const panel = $("#basic-info-panel");
+
   const setPanel = () => {
     focusFirstField();
     showOtherJobRoleField();
+    setEmailWarning();
   };
 
   const validations = () => {
-    const panel = $("#basic-info-panel");
     const checkNameFieldNotBlank = helpers.validateInputWithRegex(
       "#name",
       /^[a-zA-Z\s]+$/,
@@ -126,6 +152,31 @@ const basicInfoPanel = (function($) {
         otherTitleTextField.hide();
       }
     });
+  };
+
+  const setEmailWarning = () => {
+    const emailInput = $("#mail");
+
+    emailInput.on(
+      "keyup",
+      helpers.debounce(function() {
+        helpers.setValidationType("warning");
+
+        if (emailInput.val() !== "") {
+          const checkValidEmail = helpers.validateInputWithRegex(
+            "#mail",
+            /^\S+@\S+\.\w+$/,
+            "Email is not valid."
+          );
+
+          helpers.runValidations(panel, [checkValidEmail]);
+        } else {
+          helpers.runValidations(panel, []);
+          emailInput.removeClass("field-warning");
+          emailInput.removeClass("field-error");
+        }
+      }, 500)
+    );
   };
 
   return {
@@ -254,9 +305,7 @@ const activityRegisterPanel = (function($) {
     };
 
     const activitySplit = activityText.split(" — ");
-
     activityVals.name = activitySplit[0].trim();
-
     const nextSplit = activitySplit[1].split(",");
 
     let rawCost;
@@ -380,36 +429,21 @@ const paymentPanel = (function($) {
   };
 })(jQuery);
 
-(function() {
+$(document).ready(function() {
   basicInfoPanel.setPanel();
   tShirtPanel.setPanel();
   activityRegisterPanel.setPanel();
   paymentPanel.setPanel();
-})();
 
-$("form").submit(e => {
-  const basicInfoPassed = basicInfoPanel.validations();
-  const activityRegisterPassed = activityRegisterPanel.validations();
-  const paymentPanelPassed = paymentPanel.validations();
+  $("form").submit(e => {
+    helpers.setValidationType("error");
 
-  if (!basicInfoPassed || !activityRegisterPassed || !paymentPanelPassed) {
-    e.preventDefault();
-  }
+    const basicInfoPassed = basicInfoPanel.validations();
+    const activityRegisterPassed = activityRegisterPanel.validations();
+    const paymentPanelPassed = paymentPanel.validations();
+
+    if (!basicInfoPassed || !activityRegisterPassed || !paymentPanelPassed) {
+      e.preventDefault();
+    }
+  });
 });
-
-const mailPanel = $("#mail");
-mailPanel.on(
-  "keyup",
-  helpers.debounce(function() {
-    const basicInfoPanel = $("#basic-info-panel");
-
-    const checkValidEmail = helpers.validateInputWithRegex(
-      "#mail",
-      /^\S+@\S+\.\w+$/,
-      "Email is not valid."
-    );
-    console.log("spmething");
-
-    helpers.runValidations(basicInfoPanel, [checkValidEmail]);
-  }, 500)
-);
