@@ -1,46 +1,86 @@
 "use strict";
 
-const runValidations = (elToAppendTo, validationFunctions) => {
-  let errors = [];
+const helpers = (function($) {
+  /**
+   * Helper function that runs validation functions for section.
+   *
+   * @param elToAppendTo - Section element to append error message div.
+   * @param {Array<function>} validationFunctions - Different validation to run for section.
+   * @returns {boolean}
+   */
+  const runValidations = (elToAppendTo, validationFunctions) => {
+    const errors = [];
 
-  for (const errorFn of validationFunctions) {
-    const errorStr = errorFn();
+    for (const errorFn of validationFunctions) {
+      const errorStr = errorFn();
 
-    if (errorStr !== "") {
-      errors.push(errorStr);
+      if (errorStr !== "") {
+        errors.push(errorStr);
+      }
     }
-  }
 
-  const existingErrHtml = elToAppendTo.children(".error");
+    const existingErrHtml = elToAppendTo.children(".error");
 
-  if (errors.length > 0) {
-    if (existingErrHtml.length) {
-      existingErrHtml.text("Errors: " + errors.join(" "));
+    if (errors.length > 0) {
+      if (existingErrHtml.length) {
+        existingErrHtml.text("Errors: " + errors.join(" "));
+      } else {
+        const errHtml = $(`<p class='error'>Errors: ${errors.join(" ")}</p>`);
+        elToAppendTo.prepend(errHtml);
+      }
     } else {
-      const errHtml = $(`<p class='error'>Errors: ${errors.join(" ")}</p>`);
-      elToAppendTo.prepend(errHtml);
-    }
-  } else {
-    existingErrHtml.remove();
-  }
-
-  return errors.length === 0;
-};
-
-const validateInputWithRegex = (selector, regex, errorMessage) => {
-  return () => {
-    const field = $(selector);
-
-    if (!field.val().match(regex)) {
-      field.addClass("field-error");
-      return errorMessage;
-    } else {
-      field.removeClass("field-error");
+      existingErrHtml.remove();
     }
 
-    return "";
+    return errors.length === 0;
   };
-};
+
+  /**
+   * Helper function to create validations that specifically check against a regex value.
+   *
+   * @param selector - The selector of the input field to validate.
+   * @param regex - The regex that this field needs to match.
+   * @param errorMessage - Error message to display if validation fails.
+   * @returns {Function}
+   */
+  const validateInputWithRegex = (selector, regex, errorMessage) => {
+    return () => {
+      const field = $(selector);
+
+      if (!field.val().match(regex)) {
+        field.addClass("field-error");
+        return errorMessage;
+      }
+
+      field.removeClass("field-error");
+
+      return "";
+    };
+  };
+
+  const debounce = (func, wait, immediate) => {
+    let timeout;
+    return function() {
+      const context = this;
+      const args = arguments;
+
+      const later = function() {
+        timeout = null;
+        if (!immediate) func.apply(context, args);
+      };
+      const callNow = immediate && !timeout;
+      clearTimeout(timeout);
+      timeout = setTimeout(later, wait);
+      if (callNow) func.apply(context, args);
+    };
+  };
+
+  return {
+    runValidations,
+    validateInputWithRegex,
+    debounce
+  };
+})(jQuery);
 
 const basicInfoPanel = (function($) {
   const setPanel = () => {
@@ -50,18 +90,21 @@ const basicInfoPanel = (function($) {
 
   const validations = () => {
     const panel = $("#basic-info-panel");
-    const checkNameFieldNotBlank = validateInputWithRegex(
+    const checkNameFieldNotBlank = helpers.validateInputWithRegex(
       "#name",
       /^[a-zA-Z\s]+$/,
       "Name field must be filled."
     );
-    const checkValidEmail = validateInputWithRegex(
+    const checkValidEmail = helpers.validateInputWithRegex(
       "#mail",
       /^\S+@\S+\.\w+$/,
       "Email is not valid."
     );
 
-    return runValidations(panel, [checkNameFieldNotBlank, checkValidEmail]);
+    return helpers.runValidations(panel, [
+      checkNameFieldNotBlank,
+      checkValidEmail
+    ]);
   };
 
   const focusFirstField = () => {
@@ -152,7 +195,7 @@ const activityRegisterPanel = (function($) {
   };
 
   const setActivityCheckEvent = () => {
-    activities.children(":checkbox").click(e => {
+    activities.children(":checkbox").click(() => {
       setTotalVal(calculateCost(activities));
       hideOverlappingActivities(activities);
     });
@@ -162,8 +205,8 @@ const activityRegisterPanel = (function($) {
     const checkedActivities = activities.filter(":has(:checked)");
     const unCheckedActivities = activities.filter(":not(:has(:checked))");
 
-    let checkedActivityTimes = [];
-    for (let checkedActivity of checkedActivities) {
+    const checkedActivityTimes = [];
+    for (const checkedActivity of checkedActivities) {
       const checkedActivityTime = getActivityValues(checkedActivity.textContent)
         .time;
       checkedActivityTimes.push(checkedActivityTime);
@@ -210,11 +253,11 @@ const activityRegisterPanel = (function($) {
       cost: 0
     };
 
-    let activitySplit = activityText.split(" — ");
+    const activitySplit = activityText.split(" — ");
 
     activityVals.name = activitySplit[0].trim();
 
-    let nextSplit = activitySplit[1].split(",");
+    const nextSplit = activitySplit[1].split(",");
 
     let rawCost;
     if (nextSplit.length > 1) {
@@ -242,7 +285,7 @@ const activityRegisterPanel = (function($) {
   };
 
   const validations = () => {
-    return runValidations(activityPanel, [checkIfActivitySelected]);
+    return helpers.runValidations(activityPanel, [checkIfActivitySelected]);
   };
 
   const checkIfActivitySelected = () => {
@@ -275,19 +318,19 @@ const paymentPanel = (function($) {
   const validations = () => {
     const panel = $("#payment-panel");
 
-    const checkCreditCardZip = validateInputWithRegex(
+    const checkCreditCardZip = helpers.validateInputWithRegex(
       "#zip",
       /^\d{5}$/,
       "Not a valid zip code."
     );
-    const checkCreditCardCvv = validateInputWithRegex(
+    const checkCreditCardCvv = helpers.validateInputWithRegex(
       "#cvv",
       /^\d{3}$/,
       "Not a valid cvv number."
     );
 
     if (paymentSelect.val() === "credit card") {
-      return runValidations(panel, [
+      return helpers.runValidations(panel, [
         checkCreditCardNumber,
         checkCreditCardZip,
         checkCreditCardCvv
@@ -301,7 +344,7 @@ const paymentPanel = (function($) {
     paymentSectionMap.set("paypal", $("#paypal-info"));
     paymentSectionMap.set("bitcoin", $("#bitcoin-info"));
 
-    for (let [key, sectionEl] of paymentSectionMap) {
+    for (const [key, sectionEl] of paymentSectionMap) {
       if (key === selectedVal) {
         sectionEl.show();
       } else {
@@ -353,3 +396,20 @@ $("form").submit(e => {
     e.preventDefault();
   }
 });
+
+const mailPanel = $("#mail");
+mailPanel.on(
+  "keyup",
+  helpers.debounce(function() {
+    const basicInfoPanel = $("#basic-info-panel");
+
+    const checkValidEmail = helpers.validateInputWithRegex(
+      "#mail",
+      /^\S+@\S+\.\w+$/,
+      "Email is not valid."
+    );
+    console.log("spmething");
+
+    helpers.runValidations(basicInfoPanel, [checkValidEmail]);
+  }, 500)
+);
